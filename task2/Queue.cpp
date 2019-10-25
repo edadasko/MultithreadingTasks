@@ -20,5 +20,4 @@ public:
     virtual bool pop(byte& val) = 0;
 };
 
-
 #endif

@@ -3,11 +3,9 @@
 class AtomicParallelArray: public ParallelArray {
 private:
     atomic<int> Index;
-    atomic_bool isReady;
     
     void init() override {
         Index = 0;
-        isReady = true;
         initArray();
     }
     

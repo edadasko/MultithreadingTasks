@@ -18,7 +18,6 @@ class ParallelArray {
 public:
     const int NumTasks = 1024 * 1024;
     byte* byteArray;
-    mutex m;
     
     ParallelArray() {};
     
@@ -40,26 +39,6 @@ public:
     
     virtual void init() = 0;
     virtual void increment() = 0;
-    
-    void task(int numThreads) {
-        init();
-        vector<thread> threads;
-        for (int i = 0; i < numThreads; i ++)
-            threads.push_back(thread([&]() { increment(); }));
-        for (int i = 0; i < numThreads; i ++)
-            threads[i].join();
-        check();
-    }
-    
-    void measureTime(int numThreads) {
-        auto begin = chrono::steady_clock::now();
-        task(numThreads);
-        auto end = chrono::steady_clock::now();
-        auto time = chrono::duration_cast<chrono::milliseconds>(end - begin);
-        cout << "Время работы при NumThreads = " << numThreads << ": "
-        << (double)time.count() / 1000 << endl;
-    }
-    
 };
 
 #endif

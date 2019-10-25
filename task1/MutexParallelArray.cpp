@@ -3,6 +3,7 @@
 class MutexParallelArray: public ParallelArray {
 private:
     int Index = 0;
+    mutex m;
     
     void init() override {
         Index = 0;
@@ -14,13 +15,12 @@ private:
             m.lock();
             int currentIndex = Index;
             Index ++;
+            m.unlock();
             if (currentIndex < NumTasks) {
                 byteArray[currentIndex] ++;
-                m.unlock();
                 this_thread::sleep_for(chrono::nanoseconds(10));
             }
             else {
-                m.unlock();
                 return;
             }
         }
