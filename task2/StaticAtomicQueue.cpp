@@ -3,18 +3,16 @@
 
 class StaticAtomicQueue : public Queue {
 private:
-    byte* q;
-    mutex m;
+    atomic<byte>* q;
     int size;
     atomic<int> pushIndex, popIndex;
     
 public:
-    
     StaticAtomicQueue(int s) {
         pushIndex = 0;
         popIndex = 0;
         size = s;
-        q = new byte[size];
+        q = new atomic<byte>[size];
         for (int i = 0; i < size; i ++)
             q[i] = 0;
     }
@@ -22,31 +20,43 @@ public:
     void push(byte val) override {
         while (true) {
             int currentPushIndex = pushIndex.load();
-            while (!pushIndex.compare_exchange_weak(currentPushIndex,
-                                                    currentPushIndex + 1));
-            if (currentPushIndex  == popIndex.load() + size) {
+            if (currentPushIndex == popIndex.load() + size) {
                 continue;
             }
-            q[currentPushIndex % size] = val;
-            return;
+            
+            byte x = q[currentPushIndex % size];
+            if (x != 0) continue;
+            
+            if (pushIndex.compare_exchange_strong(currentPushIndex,
+                                                  currentPushIndex + 1)){
+                if (q[currentPushIndex % size].compare_exchange_strong(x, val))
+                    return;
+            }
         }
     }
     
     bool pop(byte& val) override {
         int currentPopIndex = popIndex.load();
-        if (currentPopIndex  == pushIndex.load())
+        if (currentPopIndex  == pushIndex.load()) {
             return false;
-        if (popIndex.compare_exchange_weak(currentPopIndex,
-                                           currentPopIndex + 1)) {
-            val = q[currentPopIndex % size];
-            return true;
+        }
+        
+        byte x = q[currentPopIndex % size];
+        if (x == 0) return false;
+        if (popIndex.compare_exchange_strong(currentPopIndex,
+                                             currentPopIndex + 1)) {
             
+            if (q[currentPopIndex % size].compare_exchange_strong(x, 0)) {
+                val = x;
+                return true;
+            }
         }
         return false;
     }
 };
 
 class StaticAtomicQueueTask {
+public:
     static void startTask(int producerNum, int consumerNum, int taskNum, int size) {
         StaticAtomicQueue q(size);
         atomic<int> sum(0);
@@ -55,7 +65,6 @@ class StaticAtomicQueueTask {
             for (int i = 0; i < taskNum; i ++) {
                 q.push(1);
             }
-            return 0;
         };
         
         auto consumer = [&]() {
@@ -73,12 +82,12 @@ class StaticAtomicQueueTask {
             threads.push_back(thread(consumer));
         for (int i = 0; i < consumerNum + producerNum; i++)
             threads[i].join();
-        
+    
         cout << "consumerNum: " << consumerNum << " producerNum: " << producerNum << endl;
         assert(sum == taskNum * producerNum);
     }
-public:
-    static void task() {
+    
+    static void measureTime() {
         vector<int> consumerNums = {1, 2, 4};
         vector<int> produserNums = {1, 2, 4};
         vector<int> sizes = {1, 4, 16};
@@ -92,7 +101,7 @@ public:
                     startTask(producer, consumer, taskNum, size);
                     auto end = chrono::high_resolution_clock::now();
                     auto time = chrono::duration_cast<chrono::milliseconds>(end - start);
-                    cout << "Time: " << (double)time.count() / 1000 << "\n\n";
+                    cout << "time: " << (double)time.count() / 1000 << "\n\n";
                 }
             }
         }
