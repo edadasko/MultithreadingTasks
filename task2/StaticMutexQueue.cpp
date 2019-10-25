@@ -41,4 +41,8 @@ public:
         conditionPush.notify_one();
         return true;
     }
+    
+    ~StaticMutexQueue() {
+        delete[] q;
+    }
 };

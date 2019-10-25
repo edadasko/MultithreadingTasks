@@ -53,4 +53,8 @@ public:
         }
         return false;
     }
+    
+    ~StaticAtomicQueue() {
+        delete[] q;
+    }
 };
